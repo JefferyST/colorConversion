@@ -37,6 +37,7 @@ private:
 	int m_nHeight;
 	int m_nWidth;
 	int m_nRealSize;
+	int m_nBytesPerLine;
 	BYTE* m_BmpData;
 	BYTE* m_pYUVI444;
 	BYTE* m_pYUVI420;

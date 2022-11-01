@@ -42,16 +42,22 @@ void CColorTransition::BmpReader(const char* fileName) {
 	m_nHeight = m_BmpInfoHeader.biHeight;
 	m_nWidth = m_BmpInfoHeader.biWidth;
 
-	int bytesPerLine = ((m_nWidth * m_BmpInfoHeader.biBitCount + 31) >>5) <<2;
-	int bytesLength = bytesPerLine * m_nHeight;
-	m_nRealSize = bytesLength;
-	m_BmpData = (BYTE*) new char[bytesLength];
+	m_nBytesPerLine = ((m_nWidth * m_BmpInfoHeader.biBitCount + 31) >>5) <<2;
+	m_nRealSize = m_nBytesPerLine * m_nHeight;
+	//m_nRealSize = bytesLength;
+	
+	m_BmpData = (BYTE*) new char[m_nRealSize];
 	fseek(fp, m_Bmpfileheader.bfOffBits, SEEK_SET);
-	ret = fread(m_BmpData, 1, bytesLength, fp);
-	if (ret != int(bytesLength)) {
-		delete[] m_BmpData;
-		m_BmpData = NULL;
+	
+	for(int i=0;i<m_nHeight;i++){
+		ret = fread(&m_BmpData[m_nRealSize-m_nBytesPerLine*(i+1)], 1, m_nBytesPerLine, fp);
+		if (ret != int(m_nBytesPerLine)) {
+			delete[] m_BmpData;
+			m_BmpData = NULL;
+			exit(0);
+	    }
 	}
+
 
 	fclose(fp);
 }
@@ -73,11 +79,12 @@ void CColorTransition::BGR888ToYUVI444() {
 
 	for (int j = 0; j < m_nHeight; j++)
 	{
+		BYTE *pLine = &m_BmpData[j * m_nBytesPerLine];
 		for (int i = 0; i < m_nWidth; i++)
 		{
-			nY = (m_nForwardCoeff[0] * m_BmpData[j * m_nWidth + 3 * i + 2] + m_nForwardCoeff[1] * m_BmpData[j * m_nWidth + 3 * i + 1] + m_nForwardCoeff[2] * m_BmpData[j * m_nWidth + 3 * i] + 128) >> 8;
-			nU = (m_nForwardCoeff[3] * m_BmpData[j * m_nWidth + 3 * i + 2] + m_nForwardCoeff[4] * m_BmpData[j * m_nWidth + 3 * i + 1] + m_nForwardCoeff[5] * m_BmpData[j * m_nWidth + 3 * i] + 128) >> 8;
-			nV = (m_nForwardCoeff[6] * m_BmpData[j * m_nWidth + 3 * i + 2] + m_nForwardCoeff[7] * m_BmpData[j * m_nWidth + 3 * i + 1] + m_nForwardCoeff[8] * m_BmpData[j * m_nWidth + 3 * i] + 128) >> 8;
+			nY = (m_nForwardCoeff[0] * pLine[3 * i + 2] + m_nForwardCoeff[1] * pLine[3 * i + 1] + m_nForwardCoeff[2] * pLine[3 * i] + 128) >> 8;
+			nU = (m_nForwardCoeff[3] * pLine[3 * i + 2] + m_nForwardCoeff[4] * pLine[3 * i + 1] + m_nForwardCoeff[5] * pLine[3 * i] + 128) >> 8;
+			nV = (m_nForwardCoeff[6] * pLine[3 * i + 2] + m_nForwardCoeff[7] * pLine[3 * i + 1] + m_nForwardCoeff[8] * pLine[3 * i] + 128) >> 8;
 
 			nU += 128;
 			nV += 128;
@@ -138,8 +145,8 @@ void CColorTransition::SaveYUVI444(const char* fileName) {
 		exit(0);
 	}
 
-	ret = fwrite(m_pYUVI444, 1, m_nRealSize, fp);
-	if (ret != m_nRealSize) {
+	ret = fwrite(m_pYUVI444, 1, m_nHeight * m_nWidth * 3, fp);
+	if (ret != m_nHeight * m_nWidth * 3) {
 		printf("Save YUVI444 failed.\n");
 		fclose(fp);
 		exit(0);
