@@ -44,8 +44,6 @@ void CColorTransition::BmpReader(const char* fileName) {
 
 	m_nBytesPerLine = ((m_nWidth * m_BmpInfoHeader.biBitCount + 31) >>5) <<2;
 	m_nRealSize = m_nBytesPerLine * m_nHeight;
-	//m_nRealSize = bytesLength;
-	
 	m_BmpData = (BYTE*) new char[m_nRealSize];
 	fseek(fp, m_Bmpfileheader.bfOffBits, SEEK_SET);
 	
@@ -57,7 +55,6 @@ void CColorTransition::BmpReader(const char* fileName) {
 			exit(0);
 	    }
 	}
-
 
 	fclose(fp);
 }
@@ -100,10 +97,9 @@ void CColorTransition::BGR888ToYUVI444() {
 	}
 }
 
-void CColorTransition::write(const char* bmpfile) {
+void CColorTransition::BmpWriter(const char* bmpfile) {
 
 	int ret;
-
 	FILE* fp = fopen(bmpfile, "wb");
 
 	if (fp == NULL) {
@@ -125,11 +121,13 @@ void CColorTransition::write(const char* bmpfile) {
 		exit(0);
 	}
 
-	ret = fwrite(m_BmpData, 1, m_nRealSize, fp);
-	if (ret != m_nRealSize) {
-		printf("Save BmpData Failed.\n");
-		fclose(fp);
-		exit(0);
+	for (int i = 0; i < m_nHeight; i++) {
+		ret = fwrite(&m_BmpData[m_nRealSize - m_nBytesPerLine * (i + 1)], 1, m_nBytesPerLine, fp);
+		if (ret != int(m_nBytesPerLine)) {
+			printf("Save BmpData Failed.\n");
+			fclose(fp);
+			exit(0);
+		}
 	}
 
 	fclose(fp);
@@ -142,6 +140,7 @@ void CColorTransition::SaveYUVI444(const char* fileName) {
 
 	if (fp == NULL) {
 		printf("Open file failed.");
+		fclose(fp);
 		exit(0);
 	}
 
@@ -192,9 +191,9 @@ void CColorTransition::YUVI444ToBGR888() {
 }
 
 
-void CColorTransition::YUV444ToYUV420(){//odd resolution ???
+void CColorTransition::YUVI444ToYUV420(){//odd resolution ???
 
-    //adjustResolution(pYUVI444);
+    adjustResolution(&m_pYUVI444);
 	int halfHeight = m_nHeight / 2;
 	int halfWidth  = m_nWidth / 2;
 	m_pYUVI420 = new BYTE[m_nHeight * m_nWidth + halfHeight * halfWidth * 2];
@@ -221,12 +220,44 @@ void CColorTransition::YUV444ToYUV420(){//odd resolution ???
 		   pUsrc += 2;
 		   pVsrc += 2;
 		}
-		//pUsrc = pYsrc + height*width + 2*width*(i+1);
-		//pVsrc = pYsrc + height*width*2 + 2*width*(i+1);
+		//pUsrc = pYsrc + m_nHeight*m_nWidth + 2*m_nWidth*(i+1);
+		//pVsrc = pYsrc + m_nHeight*m_nWidth*2 + 2*m_nWidth*(i+1);
 		pUsrc += m_nWidth;
 		pVsrc += m_nWidth;
 	}
 }
+
+
+void CColorTransition::adjustResolution(BYTE **pInYUVI444){
+
+	if((m_nHeight %2==0)&&(m_nWidth %2==0)) return;
+	BYTE *pOutYUVI444 = NULL;
+
+	if(m_nHeight %2==1){
+		pOutYUVI444 = new BYTE[(m_nHeight +1)* m_nWidth *3];
+		
+		for(int i=0;i<3;i++){
+			memcpy(pOutYUVI444 + m_nWidth * (i * m_nHeight + i), pInYUVI444 + m_nWidth * (i * m_nHeight), m_nWidth * m_nHeight * sizeof(BYTE));
+			memcpy(pOutYUVI444 + m_nWidth * ((i + 1) * m_nHeight + i), pInYUVI444 + m_nWidth * ((i + 1) * m_nHeight - 1), m_nWidth * sizeof(BYTE));
+		}
+		m_nHeight +=1;
+		delete []*pInYUVI444;
+		*pInYUVI444 = pOutYUVI444;
+	}
+	
+	//if(m_nWidth %2==1){
+	//	pOutYUVI444 = new BYTE[m_nHeight *(m_nWidth +1)*3];
+	//	
+	//	for(int i=0;i< m_nHeight;i++){
+	//		memcpy(pOutYUVI444+ m_nWidth *i+i,pInYUVI444+ m_nWidth *(i* m_nHeight), m_nWidth *sizeof(BYTE));
+	//		memcpy(pOutYUVI444+(m_nWidth +1)*i+i,pInYUVI444+ m_nWidth *(i* m_nHeight)-1, sizeof(BYTE));
+	//	}
+	//	m_nWidth +=1;
+	//	delete []pInYUVI444;
+	//	pInYUVI444 = pOutYUVI444;
+	//}
+}
+
 
 void CColorTransition::savaYU12(const char *fileName){
 	int ret;
@@ -239,37 +270,125 @@ void CColorTransition::savaYU12(const char *fileName){
 	ret = fwrite(pY, 1, m_nHeight * m_nWidth * sizeof(BYTE), fp);
 	if(ret!= m_nHeight * m_nWidth){
 		printf("Save Y failed.");
+		fclose(fp);
 		exit(0);
 	}
 	
 	ret = fwrite(pU, 1, m_nHeight * m_nWidth / 4 * sizeof(BYTE), fp);
 	if(ret!= m_nHeight * m_nWidth /4){
 		printf("Save U failed.");
+		fclose(fp);
 		exit(0);
 	}
 	
 	ret = fwrite(pV, 1, m_nHeight * m_nWidth / 4 * sizeof(BYTE), fp);
 	if(ret!= m_nHeight * m_nWidth /4){
 		printf("Save V failed.");
+		fclose(fp);
 		exit(0);
 	}
 	
 	fclose(fp);	
 }
  
+void CColorTransition::savaYV12(const char *fileName){
+	int ret;
+	BYTE *pY = m_pYUVI420;
+	BYTE *pU = pY+ m_nHeight * m_nWidth;
+	BYTE *pV = pU+ m_nHeight * m_nWidth /4;
+	
+	FILE *fp = fopen(fileName,"wb");
+	
+	ret = fwrite(pY,1, m_nHeight * m_nWidth *sizeof(BYTE),fp);
+	if(ret!= m_nHeight * m_nWidth){
+		printf("Save Y failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+	ret = fwrite(pV,1, m_nHeight * m_nWidth /4*sizeof(BYTE),fp);
+	if(ret!= m_nHeight * m_nWidth /4){
+		printf("Save V failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+	ret = fwrite(pU,1, m_nHeight * m_nWidth /4*sizeof(BYTE),fp);
+	if(ret!= m_nHeight * m_nWidth /4){
+		printf("Save U failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+	fclose(fp);
+}
  
- 
- 
- 
-//int main()
-//{
-//
 
-//
-//	return 0;  
-//}
-//
-//
+void CColorTransition::savaNV12(const char *fileName){
+	int ret;
+	BYTE *pY = m_pYUVI420;
+	BYTE *pU = pY+ m_nHeight * m_nWidth;
+	BYTE *pV = pU+ m_nHeight * m_nWidth /4;
+	BYTE *pUV = new BYTE[m_nHeight * m_nWidth /2];
+	FILE* fp = fopen(fileName, "wb");
+
+	for(int i=0;i< m_nHeight * m_nWidth /4;i++){
+		pUV[i*2]=pU[i];
+		pUV[i*2+1]=pV[i];
+	}
+	
+	ret = fwrite(pY,1, m_nHeight * m_nWidth *sizeof(BYTE),fp);
+	if(ret!= m_nHeight * m_nWidth){
+		printf("Save Y failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+	ret = fwrite(pUV,1, m_nHeight * m_nWidth /2*sizeof(BYTE),fp);
+	if(ret!= m_nHeight * m_nWidth /2){
+		printf("Save UV failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+    delete []pUV;
+	fclose(fp);
+}
+
+void CColorTransition::savaNV21(const char *fileName){
+	int ret;
+	BYTE *pY = m_pYUVI420;
+	BYTE *pU = pY+ m_nHeight * m_nWidth;
+	BYTE *pV = pU+ m_nHeight * m_nWidth /4;
+	BYTE *pUV = new BYTE[m_nHeight * m_nWidth /2];
+	FILE* fp = fopen(fileName, "wb");
+
+	for(int i=0;i< m_nHeight * m_nWidth /4;i++){
+		pUV[i*2]   = pV[i];
+		pUV[i*2+1] = pU[i];
+	}
+	
+	ret = fwrite(pY, 1, m_nHeight * m_nWidth * sizeof(BYTE), fp);
+	if(ret!= m_nHeight * m_nWidth){
+		printf("Save Y failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+	ret = fwrite(pUV, 1, m_nHeight * m_nWidth / 2 * sizeof(BYTE), fp);
+	if(ret!= m_nHeight * m_nWidth /2){
+		printf("Save UV failed.");
+		fclose(fp);
+		exit(0);
+	}
+	
+    delete []pUV;
+	fclose(fp);
+}
+
+ 
+ 
+
 ////References
 ////https://en.wikipedia.org/wiki/YCbCr
 ////http://www.itu.int/rec/R-REC-BT.601
@@ -278,172 +397,10 @@ void CColorTransition::savaYU12(const char *fileName){
 ////https://blog.csdn.net/sunty2016/article/details/106589379/
 ////https://blog.csdn.net/qq_20797295/article/details/102679394/
 //
-//void YUV444ToYUV420(){//odd resolution ???
-//
-//    adjustResolution(pYUVI444);
-//	int halfHeight = height/2;
-//	int halfWidth  = width/2;
-//	BYTE *pYUVI420 = new BYTE[height*width+halfHeight*halfWidth*2];
-//	
-//	BYTE *pYdes = pYUVI420;
-//	BYTE *pUdes = pYdes+height*width;
-//	BYTE *pVdes = pUdes+halfHeight*halfWidth;
-//	
-//	BYTE *pYsrc = pYUVI444;
-//	BYTE *pUsrc = pYsrc + height*width;
-//	BYTE *pVsrc = pUsrc + height*width;
-//	
-//	memcpy(pYdes, pYsrc, width*height*sizeof(BYTE));
-//	
-//	for(int i=0;i<halfHeight;i++){
-//		for(int j=0;j<halfWidth;j++){
-//
-//		   *pUdes = *pUsrc;
-//		   *pVdes = *pVsrc;
-//		   
-//		   pUdes++;
-//           pVdes++;
-//		   
-//		   pUsrc += 2;
-//		   pVsrc += 2;
-//		}
-//		//pUsrc = pYsrc + height*width + 2*width*(i+1);
-//		//pVsrc = pYsrc + height*width*2 + 2*width*(i+1);
-//		pUsrc += width;
-//		pVsrc += width;
-//	}
-//}
-//
-//
-////srcU = srcY + w * h + 2 * w * (i + 1);
-////srcV = srcY + 2 * w * h + 2 * w * (i + 1);
-//
-//
+
 ////https://blog.csdn.net/guyuealian/article/details/82454945
 //
-//void adjustResolution(BYTE *pInYUVI444){
-//	if((height%2==0)&&(width%2==0)) return;
-//	
-//	BYTE *pOutYUVI444 = NULL;
-//
-//	if(height%2==1){
-//		pOutYUVI444 = new BYTE[(height+1)*width*3];
-//		
-//		for(int i=0;i<3;i++){
-//			memcpy(pOutYUVI444+width*(i*height+i),pInYUVI444+width*(i*height),width*height*sizeof(BYTE));
-//			memcpy(pOutYUVI444+width*((i+1)*height+i),pInYUVI444+width*((i+1)*height-1),width*sizeof(BYTE));
-//		}
-//		height +=1;
-//		delete []pInYUVI444;
-//		pInYUVI444 = pOutYUVI444;
-//	}
-//	
-//	if(width%2==1){
-//		pOutYUVI444 = new BYTE[height*(width+1)*3];
-//		
-//		for(int i=0;i<height;i++){
-//			memcpy(pOutYUVI444+width*i+i,pInYUVI444+width*(i*height),width*sizeof(BYTE));
-//			memcpy(pOutYUVI444+(width+1)*i+i,pInYUVI444+width*(i*height)-1, sizeof(BYTE));
-//		}
-//		width+=1;
-//		delete []pInYUVI444;
-//		pInYUVI444 = pOutYUVI444;
-//	}
-//}
+
 //
 ////https://www.cnblogs.com/yongdaimi/p/10647005.html
 ////https://blog.csdn.net/zhiyuan2021/article/details/123931447
-
-//
-//
-//void savaYV12(char *fileName){
-//	int ret;
-//	BYTE *pY = pYUVI420;
-//	BYTE *pU = pY+height*width;
-//	BYTE *pV = pU+height*width/4;
-//	
-//	FILE *fp = fopen(fileName,"wb");
-//	
-//	ret = fwrite(pY,1,height*width*sizeof(BYTE),fp);
-//	if(ret!=height*width){
-//		printf("Save Y failed.");
-//		exit(0);
-//	}
-//	
-//	ret = fwrite(pV,1,height*width/4*sizeof(BYTE),fp);
-//	if(ret!=height*width/4){
-//		printf("Save V failed.");
-//		exit(0);
-//	}
-//	
-//	ret = fwrite(pU,1,height*width/4*sizeof(BYTE),fp);
-//	if(ret!=height*width/4){
-//		printf("Save U failed.");
-//		exit(0);
-//	}
-//	
-//
-//	fclose(fp);
-//}
-//
-//void savaNV12(char *fileName){
-//	int ret;
-//	BYTE *pY = pYUVI420;
-//	BYTE *pU = pY+height*width;
-//	BYTE *pV = pU+height*width/4;
-//	
-//	BYTE *pUV = new BYTE[height*width/2];
-//	
-//	for(int i=0;i<height*width/4;i++){
-//		pUV[i*2]=pU[i];
-//		pUV[i*2+1]=pV[i];
-//	}
-//	
-//	FILE *fp = fopen(fileName,"wb");
-//	
-//	ret = fwrite(pY,1,height*width*sizeof(BYTE),fp);
-//	if(ret!=height*width){
-//		printf("Save Y failed.");
-//		exit(0);
-//	}
-//	
-//	ret = fwrite(pUV,1,height*width/2*sizeof(BYTE),fp);
-//	if(ret!=height*width/2){
-//		printf("Save UV failed.");
-//		exit(0);
-//	}
-//	
-//    delete []pUV;
-//	fclose(fp);
-//}
-//
-//void savaNV21(char *fileName){
-//	int ret;
-//	BYTE *pY = pYUVI420;
-//	BYTE *pU = pY+height*width;
-//	BYTE *pV = pU+height*width/4;
-//	
-//	BYTE *pUV = new BYTE[height*width/2];
-//	
-//	for(int i=0;i<height*width/4;i++){
-//		pUV[i*2]   = pV[i];
-//		pUV[i*2+1] = pU[i];
-//	}
-//	
-//	FILE *fp = fopen(fileName,"wb");
-//	
-//	ret = fwrite(pY,1,height*width*sizeof(BYTE),fp);
-//	if(ret!=height*width){
-//		printf("Save Y failed.");
-//		exit(0);
-//	}
-//	
-//	ret = fwrite(pUV,1,height*width/2*sizeof(BYTE),fp);
-//	if(ret!=height*width/2){
-//		printf("Save UV failed.");
-//		exit(0);
-//	}
-//	
-//    delete []pUV;
-//	fclose(fp);
-//}

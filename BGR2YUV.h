@@ -78,11 +78,16 @@ public:
 
 
 	void BmpReader(const char* fileName);
+	void BmpWriter(const char* bmpfile);
 	int Clip(int num, int min, int max);
 	void BGR888ToYUVI444();
 	void YUVI444ToBGR888();
 	void SaveYUVI444(const char* fileName);
-	void write(const char* bmpfile);
-	void YUV444ToYUV420();
+	void YUVI444ToYUV420();
+	void adjustResolution(BYTE **pInYUVI444);
 	void savaYU12(const char* fileName);
+	void savaYV12(const char* fileName);
+	void savaNV12(const char* fileName);
+	void savaNV21(const char* fileName);
+
 };
