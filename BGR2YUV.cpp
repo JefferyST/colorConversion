@@ -237,25 +237,39 @@ void CColorTransition::adjustResolution(BYTE **pInYUVI444){
 		pOutYUVI444 = new BYTE[(m_nHeight +1)* m_nWidth *3];
 		
 		for(int i=0;i<3;i++){
-			memcpy(pOutYUVI444 + m_nWidth * (i * m_nHeight + i), pInYUVI444 + m_nWidth * (i * m_nHeight), m_nWidth * m_nHeight * sizeof(BYTE));
-			memcpy(pOutYUVI444 + m_nWidth * ((i + 1) * m_nHeight + i), pInYUVI444 + m_nWidth * ((i + 1) * m_nHeight - 1), m_nWidth * sizeof(BYTE));
+			memcpy(pOutYUVI444 + m_nWidth * (i * m_nHeight + i), (*pInYUVI444) + m_nWidth * (i * m_nHeight), m_nWidth * m_nHeight * sizeof(BYTE));
+			memcpy(pOutYUVI444 + m_nWidth * ((i + 1) * m_nHeight + i), (*pInYUVI444) + m_nWidth * ((i + 1) * m_nHeight - 1), m_nWidth * sizeof(BYTE));
 		}
 		m_nHeight +=1;
-		delete []*pInYUVI444;
+		delete [](*pInYUVI444);
 		*pInYUVI444 = pOutYUVI444;
 	}
 	
-	//if(m_nWidth %2==1){
-	//	pOutYUVI444 = new BYTE[m_nHeight *(m_nWidth +1)*3];
-	//	
-	//	for(int i=0;i< m_nHeight;i++){
-	//		memcpy(pOutYUVI444+ m_nWidth *i+i,pInYUVI444+ m_nWidth *(i* m_nHeight), m_nWidth *sizeof(BYTE));
-	//		memcpy(pOutYUVI444+(m_nWidth +1)*i+i,pInYUVI444+ m_nWidth *(i* m_nHeight)-1, sizeof(BYTE));
-	//	}
-	//	m_nWidth +=1;
-	//	delete []pInYUVI444;
-	//	pInYUVI444 = pOutYUVI444;
-	//}
+	if(m_nWidth %2==1){
+		pOutYUVI444 = new BYTE[m_nHeight *(m_nWidth +1)*3];
+		
+		BYTE *pYsrc = *pInYUVI444;
+		BYTE *pUsrc = pYsrc+m_nHeight * m_nWidth;
+		BYTE *pVsrc = pUsrc+m_nHeight * m_nWidth;
+		
+		BYTE *pYdes = pOutYUVI444;
+		BYTE *pUdes = pYdes+m_nHeight *(m_nWidth +1);
+		BYTE *pVdes = pUdes+m_nHeight *(m_nWidth +1);
+		
+		for(int i=0;i< m_nHeight;i++){
+			memcpy(pYdes+ m_nWidth *i+i,pYsrc+ m_nWidth *i , m_nWidth *sizeof(BYTE));
+			memcpy(pYdes+m_nWidth*(i+1)+i,pYsrc+ m_nWidth *(i+ 1)-1, sizeof(BYTE));
+			
+			memcpy(pUdes+ m_nWidth *i+i,pUsrc+ m_nWidth *i , m_nWidth *sizeof(BYTE));
+			memcpy(pUdes+m_nWidth*(i+1)+i,pUsrc+ m_nWidth *(i+ 1)-1, sizeof(BYTE));
+			
+			memcpy(pVdes+ m_nWidth *i+i,pVsrc+ m_nWidth *i , m_nWidth *sizeof(BYTE));
+			memcpy(pVdes+m_nWidth*(i+1)+i,pVsrc+ m_nWidth *(i+ 1)-1, sizeof(BYTE));
+		}
+		m_nWidth +=1;
+		delete [](*pInYUVI444);
+		*pInYUVI444 = pOutYUVI444;
+	}
 }
 
 
@@ -352,6 +366,7 @@ void CColorTransition::savaNV12(const char *fileName){
 	}
 	
     delete []pUV;
+	pUV = NULL;
 	fclose(fp);
 }
 
@@ -383,6 +398,7 @@ void CColorTransition::savaNV21(const char *fileName){
 	}
 	
     delete []pUV;
+	pUV = NULL;
 	fclose(fp);
 }
 
