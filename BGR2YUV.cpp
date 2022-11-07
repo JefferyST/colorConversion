@@ -191,7 +191,7 @@ void CColorTransition::YUVI444ToBGR888() {
 }
 
 
-void CColorTransition::YUVI444ToYUV420(){//odd resolution ???
+void CColorTransition::YUVI444ToYUV420(){
 
     adjustResolution(&m_pYUVI444);
 	int halfHeight = m_nHeight / 2;
@@ -401,22 +401,3 @@ void CColorTransition::savaNV21(const char *fileName){
 	pUV = NULL;
 	fclose(fp);
 }
-
- 
- 
-
-////References
-////https://en.wikipedia.org/wiki/YCbCr
-////http://www.itu.int/rec/R-REC-BT.601
-////ITU-R BT.601-7
-//
-////https://blog.csdn.net/sunty2016/article/details/106589379/
-////https://blog.csdn.net/qq_20797295/article/details/102679394/
-//
-
-////https://blog.csdn.net/guyuealian/article/details/82454945
-//
-
-//
-////https://www.cnblogs.com/yongdaimi/p/10647005.html
-////https://blog.csdn.net/zhiyuan2021/article/details/123931447
